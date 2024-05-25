@@ -2,6 +2,7 @@ class Sphere{
     constructor(){
         this.type = 'sphere';
         this.color = [0,0,0,0];
+        this.materialSmoothness = 10; //specularExponent
         this.matrix = new Matrix4();
         this.textureNum = 0;
         const pie = Math.PI;
@@ -41,6 +42,7 @@ class Sphere{
         gl.uniform1i(u_WhichTexture, this.textureNum);
         gl.uniform4f(u_FragColor, rgba[0], rgba[1], rgba[2], rgba[3]);
         gl.uniformMatrix4fv(u_ModelMatrix, false, this.matrix.elements);
+        gl.uniform1f(u_MaterialSmoothness, this.materialSmoothness);
 
         // Vertex buffer
         this.vertexBuffer = gl.createBuffer();

@@ -22,55 +22,80 @@ var VSHADER_SOURCE = `
 
 // fragment shader source code
 var FSHADER_SOURCE = `
-  precision mediump float;
-  varying vec2 v_UV;
-  varying vec4 v_Color;
-  varying vec3 v_Normal;
-  varying vec4 v_VertPos;
-  uniform vec4 u_FragColor;
-  uniform vec3 u_CameraPosition;
-  uniform int u_LightingOn;
-  uniform sampler2D u_Sampler0;
-  uniform sampler2D u_Sampler1;
-  uniform int u_WhichTexture;
-  uniform vec3 u_LightPos;
+// fragment shader source code
+precision mediump float;
+varying vec2 v_UV;
+varying vec4 v_Color;
+varying vec3 v_Normal;
+varying vec4 v_VertPos;
+uniform vec4 u_FragColor;
+uniform vec3 u_CameraPosition;
+uniform int u_LightingOn;
+uniform float u_MaterialSmoothness;
+uniform sampler2D u_Sampler0;
+uniform sampler2D u_Sampler1;
+uniform int u_WhichTexture;
+uniform vec3 u_LightPos;
 
-  void main() {
+// spotlight params
+uniform vec3 u_SpotlightDirection;
+uniform float u_SpotlightCutoff;
+
+struct LightProperties {
+  bool enabled;
+  vec4 position;
+  vec3 color;
+  vec3 direction;
+  float cutoff;
+};
+
+void main() {
     gl_FragColor = u_FragColor;
-    if (u_WhichTexture == -3){
-      gl_FragColor = vec4((v_Normal +1.0)/2.0, 1.0);
+    if (u_WhichTexture == -3) {
+        gl_FragColor = vec4((v_Normal +1.0)/2.0, 1.0);
     }
     else if (u_WhichTexture == -2) {
-      gl_FragColor = u_FragColor;
+        gl_FragColor = u_FragColor;
     }
     else if (u_WhichTexture == -1) {
-      gl_FragColor = vec4(v_UV,1.0,1.0);
+        gl_FragColor = vec4(v_UV,1.0,1.0);
     }
     else if (u_WhichTexture == 0) {
-      gl_FragColor = texture2D(u_Sampler0, v_UV);
+        gl_FragColor = texture2D(u_Sampler0, v_UV);
     } 
     else if (u_WhichTexture == 1) {
-      gl_FragColor = texture2D(u_Sampler1, v_UV);
-    } else{
-      gl_FragColor = vec4(1,0,0,1); //error, redish
+        gl_FragColor = texture2D(u_Sampler1, v_UV);
+    } else {
+        gl_FragColor = vec4(1,0,0,1); //error, redish
     }
+
     if(u_LightingOn == 1) return;
-    vec3 lightVector =  u_LightPos - vec3(v_VertPos);
+    vec3 lightVector = u_LightPos - vec3(v_VertPos);
     float r = length(lightVector);
 
     vec3 L = normalize(lightVector);
     vec3 N = normalize(v_Normal);
-    float nDotL = max(dot(N,L), 0.0);
+    float nDotL = max(dot(N, L), 0.0);
 
-    vec3 R = reflect(-L,N);
-    vec3 E = normalize(u_CameraPosition - vec3(v_VertPos));
+    // spotlight calcs
+    float spotlight_intensity = 1.0;
+    if(u_SpotlightCutoff > 0.0){
+      float theta = dot(L, normalize(-u_SpotlightDirection));
+      float epsilon = u_SpotlightCutoff - 0.1;
+      spotlight_intensity = clamp((theta - epsilon) / (u_SpotlightCutoff - epsilon), 0.0, 1.0);
+    }
     
-    float specular = pow(max(dot(E,R),0.0),5.0);
+    vec3 R = reflect(-L, N);
+    vec3 E = normalize(u_CameraPosition - vec3(v_VertPos));
+    float eDotR = dot(E, R);
+    float specular = 0.0;
+    if(eDotR > 0.0) { specular = pow(max(eDotR, 0.0), u_MaterialSmoothness) * spotlight_intensity; }
 
-    vec3 diffuse = vec3 (gl_FragColor) * nDotL * .7;
-    vec3 ambient = vec3 (gl_FragColor) * 0.3;
+    specular *= step(0.0, spotlight_intensity);
+    vec3 diffuse = vec3(gl_FragColor) * nDotL * 0.7 * spotlight_intensity;
+    vec3 ambient = vec3(gl_FragColor) * 0.3;
     gl_FragColor = vec4(specular + diffuse + ambient, 1.0);
-  }`;
+}`;
 
 // global vars for WebGL context & shader program attributes/uniforms
 let gl;
@@ -82,6 +107,8 @@ let a_Color;
 let a_Normal;
   //uniform
 let u_FragColor;
+let u_SpotlightDirection;
+let u_SpotlightCutoff;
 let u_LightPos;
 let u_Size;
 let u_ModelMatrix;
@@ -148,10 +175,15 @@ function main() {
   gl.clearColor(75/255, 97/255, 84/255, 1.0);
   initGeometry();
 
+  let spotlightDirection = [0.0, -1.0, 0.0]; // Example direction
+  let spotlightCutoff = Math.cos(10 * Math.PI / 180); // Example cutoff angle in cosine (for 25 degrees, it would be cos(25 * Math.PI / 180))
+  
   function renderScene() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
 
+    gl.uniform3f(u_SpotlightDirection, spotlightDirection[0], spotlightDirection[1], spotlightDirection[2]);
+    gl.uniform1f(u_SpotlightCutoff, spotlightCutoff);
     // making the projection  matrix 
     var projMat = new Matrix4();
     projMat.setPerspective(camera.fov, canvas.width/canvas.height, .1, 1000);
@@ -224,10 +256,12 @@ function initGeometry(){
   sphere.color = [1,0,0,1];
   sphere.matrix.translate(0,5,0);
   sphere.matrix.scale(1,1,1);
+  sphere.materialSmoothness = 5;
   objs[0] = sphere;
+
   cube = new Cube();
   cube.color = [200/255,100/255,100/255,1];
-  cube.matrix.translate(0,0,0);
+  cube.matrix.translate(0,1,0);
   cube.textureNum = -2;
   objs[1] = cube;
 
@@ -377,7 +411,10 @@ function connectVariablesToGLSL() {
     console.log('Failed to initialize shaders.');
     return false;
   }
-
+  
+  u_SpotlightDirection = gl.getUniformLocation(gl.program, 'u_SpotlightDirection');
+  u_SpotlightCutoff = gl.getUniformLocation(gl.program, 'u_SpotlightCutoff');
+  
   a_Position = gl.getAttribLocation(gl.program, 'a_Position');
   if (a_Position < 0) {
     console.log('Failed to get the storage location of a_Position');
@@ -386,6 +423,11 @@ function connectVariablesToGLSL() {
   u_LightingOn = gl.getUniformLocation(gl.program, 'u_LightingOn');
   if (u_LightingOn < 0) {
     console.log('Failed to get the storage location of u_LightingOn');
+    return false;
+  }
+  u_MaterialSmoothness = gl.getUniformLocation(gl.program, 'u_MaterialSmoothness');
+  if (u_MaterialSmoothness < 0) {
+    console.log('Failed to get the storage location of u_MaterialSmoothness');
     return false;
   }
   u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor');

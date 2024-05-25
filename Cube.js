@@ -53,12 +53,14 @@ class Cube{
         this.color = [0,0,0,0];
         this.matrix = new Matrix4();
         this.textureNum = 0;
+        this.materialSmoothness = 10; //specular exponent
     }
 
     render(){
         const rgba = this.color;
         gl.uniform1i(u_WhichTexture, this.textureNum);
         gl.uniform4f(u_FragColor, rgba[0], rgba[1], rgba[2], rgba[3]);
+        gl.uniform1f(u_MaterialSmoothness, this.materialSmoothness);
         
         // vertex buffer
         this.vertexBuffer = gl.createBuffer();
@@ -82,6 +84,7 @@ class Cube{
         gl.vertexAttribPointer(a_Normal, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(a_Normal);
         gl.drawArrays(gl.TRIANGLES, 0, 36);
+
     }   
 
 }
