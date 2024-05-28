@@ -145,6 +145,8 @@ let g_time = Date.now(); // Initialize g_time outside the tick function for pers
 let g_lightPos = [0,19,0]; 
 let lightingOn = false;
 let normalsOn = false;
+let anims = false;
+let dancingLight = 0;
 
 let camera_rotateY = 0;
 let camera_rotateX = 0;
@@ -176,6 +178,7 @@ REQUIREMENTS FOR ASGN 4
 let sphere, cube, sky, floor;
 let objs = [sphere, cube];
 let lights = [];
+startingLightShift = [];
 
 function main() {
   if (!setupWebGL()) {
@@ -233,9 +236,7 @@ function main() {
     sky.render();
     floor.render();
 
-
-
-    lights.forEach((li) => {
+    lights.forEach((li, i) => {
       let bulb = new Cube();
       bulb.color = li.color;
       bulb.textureNum = -2;
@@ -245,8 +246,20 @@ function main() {
       bulb.render();
       li.render();
     });
-
   }
+  
+  
+  function osc(min, max, current, speed, elapsed) {
+    const range = max - min;
+    const midpoint = (max + min) / 2;
+    const amplitude = range / 2;
+  
+    const phaseShift = Math.asin((current - midpoint) / amplitude);
+  
+    const newValue = midpoint + amplitude * Math.sin(speed * elapsed + phaseShift);
+    return newValue;
+  }
+  
 
   var tick = function(){
     let startTime = performance.now();
@@ -261,7 +274,7 @@ function main() {
     camera.update(elapsed);
     camera_rotateX = 0;
     camera_rotateY = 0;
-
+    if(anims) lightAnimation(lights[dancingLight+1]);
     renderScene();
     requestAnimationFrame(tick);// req that the browser calls tick
     let duration = performance.now() - startTime;
@@ -269,6 +282,24 @@ function main() {
   };
   
   requestAnimationFrame(tick);
+}
+
+function lightAnimation(light){
+  const phase = .01*g_time % (8 * Math.PI);
+  const amplitude = 9;
+  if (phase < 2 * Math.PI) {
+    light.position[0] = -amplitude;
+    light.position[2] = -amplitude + 18 * (phase / (2 * Math.PI));
+} else if (phase < 4 * Math.PI) {
+    light.position[0] = -amplitude + 18 * ((phase - 2 * Math.PI) / (2 * Math.PI));
+    light.position[2] = amplitude;
+} else if (phase < 6 * Math.PI) {
+    light.position[0] = amplitude;
+    light.position[2] = amplitude - 18 * ((phase - 4 * Math.PI) / (2 * Math.PI));
+} else {
+    light.position[0] = amplitude - 18 * ((phase - 6 * Math.PI) / (2 * Math.PI));
+    light.position[2] = -amplitude;
+}
 }
 
 function initGeometry(){
@@ -333,7 +364,12 @@ function initGeometry(){
   lights.push(otherLight);
 
 }
-
+function initializePhaseShift(min, max, current) {
+  const range = max - min;
+  const midpoint = (max + min) / 2;
+  const amplitude = range / 2;
+  return Math.asin((current - midpoint) / amplitude);
+}
 //#region    // CANVAS & DOCUMENT SHIZ //
 function eventsAndHTMLUI(document, canvas){
   document.onkeydown = keydown;
@@ -346,7 +382,12 @@ function eventsAndHTMLUI(document, canvas){
     normalsOn = document.getElementById('normalCheckbox').checked;
     console.log("normals on");
   });
-
+  document.getElementById('dancingLight').addEventListener('change', (ev) =>{
+    anims = document.getElementById('dancingLight').checked;
+  });
+  document.getElementById('lights').addEventListener('change', function() {
+    dancingLight = parseInt(this.value, 10);
+  });
   document.getElementById('lightXSlider0').addEventListener('input', function() {
     lights[1].position[0] = parseFloat(this.value);
   });
