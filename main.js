@@ -35,7 +35,7 @@ uniform float u_MaterialSmoothness;
 uniform sampler2D u_Sampler0;
 uniform sampler2D u_Sampler1;
 uniform int u_WhichTexture;
-uniform vec3 u_LightPos;
+//uniform vec3 u_LightPos;
 
 // spotlight params
 uniform vec3 u_SpotlightDirection;
@@ -43,11 +43,43 @@ uniform float u_SpotlightCutoff;
 
 struct LightProperties {
   bool enabled;
-  vec4 position;
+  vec3 position;
   vec3 color;
   vec3 direction;
   float cutoff;
+  float amb_intensity;
+  float diff_intensity;
 };
+
+uniform LightProperties lights[4];
+vec3 lightGenerator(LightProperties light, vec3 baseColor){
+  vec3 lightVector = light.position - vec3(v_VertPos);
+  //float r = length(lightVector);
+
+  vec3 L = normalize(lightVector);
+  vec3 N = normalize(v_Normal);
+  vec3 R = reflect(-L, N);
+  vec3 E = normalize(u_CameraPosition - vec3(v_VertPos));
+
+  float nDotL = max(dot(N, L), 0.0);
+  float eDotR = dot(E, R);
+  float specularFactor = 0.0;
+
+  // spotlight calcs
+  float spotlight_intensity = 1.0;
+  if(light.cutoff > 0.0){
+    float theta = dot(L, normalize(-light.direction));
+    float epsilon = light.cutoff - 0.1;
+    spotlight_intensity = clamp((theta - epsilon) / (light.cutoff - epsilon), 0.0, 1.0);
+  }
+  if(eDotR > 0.0) { specularFactor = pow(max(eDotR, 0.0), 10.0) * spotlight_intensity; }
+  specularFactor *= step(0.0, spotlight_intensity);
+
+  vec3 specular = specularFactor * light.color * light.diff_intensity * u_MaterialSmoothness;
+  vec3 diffuse = vec3(baseColor) * nDotL * light.diff_intensity * spotlight_intensity * light.color;
+  vec3 ambient = vec3(baseColor) * light.amb_intensity * light.color;
+  return vec3(specular + diffuse + ambient);
+}
 
 void main() {
     gl_FragColor = u_FragColor;
@@ -66,35 +98,17 @@ void main() {
     else if (u_WhichTexture == 1) {
         gl_FragColor = texture2D(u_Sampler1, v_UV);
     } else {
-        gl_FragColor = vec4(1,0,0,1); //error, redish
+        gl_FragColor = vec4(1,0,0,1); //error, redishbaseColor
     }
 
     if(u_LightingOn == 1) return;
-    vec3 lightVector = u_LightPos - vec3(v_VertPos);
-    float r = length(lightVector);
 
-    vec3 L = normalize(lightVector);
-    vec3 N = normalize(v_Normal);
-    float nDotL = max(dot(N, L), 0.0);
-
-    // spotlight calcs
-    float spotlight_intensity = 1.0;
-    if(u_SpotlightCutoff > 0.0){
-      float theta = dot(L, normalize(-u_SpotlightDirection));
-      float epsilon = u_SpotlightCutoff - 0.1;
-      spotlight_intensity = clamp((theta - epsilon) / (u_SpotlightCutoff - epsilon), 0.0, 1.0);
+    vec3 color = vec3(0.0);
+    for (int i = 0; i < 4; i++) {
+      if(lights[i].enabled){ color += lightGenerator(lights[i], vec3(gl_FragColor)); }
     }
-    
-    vec3 R = reflect(-L, N);
-    vec3 E = normalize(u_CameraPosition - vec3(v_VertPos));
-    float eDotR = dot(E, R);
-    float specular = 0.0;
-    if(eDotR > 0.0) { specular = pow(max(eDotR, 0.0), u_MaterialSmoothness) * spotlight_intensity; }
+    gl_FragColor = vec4(color, 1.0);
 
-    specular *= step(0.0, spotlight_intensity);
-    vec3 diffuse = vec3(gl_FragColor) * nDotL * 0.7 * spotlight_intensity;
-    vec3 ambient = vec3(gl_FragColor) * 0.3;
-    gl_FragColor = vec4(specular + diffuse + ambient, 1.0);
 }`;
 
 // global vars for WebGL context & shader program attributes/uniforms
@@ -109,7 +123,7 @@ let a_Normal;
 let u_FragColor;
 let u_SpotlightDirection;
 let u_SpotlightCutoff;
-let u_LightPos;
+//let u_LightPos;
 let u_Size;
 let u_ModelMatrix;
 let u_ProjectionMatrix;
@@ -161,6 +175,7 @@ REQUIREMENTS FOR ASGN 4
 */
 let sphere, cube, sky, floor;
 let objs = [sphere, cube];
+let lights = [];
 
 function main() {
   if (!setupWebGL()) {
@@ -201,7 +216,7 @@ function main() {
     // rotate matrix
     g_rotateMatrix = new Matrix4();
     gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, g_rotateMatrix.elements);
-    gl.uniform3f(u_LightPos, g_lightPos[0],g_lightPos[1],g_lightPos[2]);
+    //gl.uniform3f(u_LightPos, g_lightPos[0],g_lightPos[1],g_lightPos[2]);
     gl.uniform3f(u_CameraPosition, camera.eye.elements[0],camera.eye.elements[1], camera.eye.elements[2]);
 
     if(normalsOn){
@@ -218,13 +233,19 @@ function main() {
     sky.render();
     floor.render();
 
-    let light = new Cube();
-    light.color = [0,1,0,1];
-    light.textureNum = -2;
-    light.matrix.translate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
-    light.matrix.scale(-.5,-.5,-.5);
-    light.matrix.translate(-.5,-.5,.5);
-    light.render();
+
+
+    lights.forEach((li) => {
+      let bulb = new Cube();
+      bulb.color = li.color;
+      bulb.textureNum = -2;
+      bulb.matrix.translate(li.position[0], li.position[1], li.position[2]);
+      bulb.matrix.scale(-.5,-.5,-.5);
+      bulb.matrix.translate(-.5,-.5,.5);
+      bulb.render();
+      li.render();
+    });
+
   }
 
   var tick = function(){
@@ -251,10 +272,11 @@ function main() {
 }
 
 function initGeometry(){
+  lights = [];
   sphere = new Sphere();
   sphere.textureNum = -2;
   sphere.color = [1,0,0,1];
-  sphere.matrix.translate(0,5,0);
+  sphere.matrix.translate(-3,2,0);
   sphere.matrix.scale(1,1,1);
   sphere.materialSmoothness = 5;
   objs[0] = sphere;
@@ -262,6 +284,7 @@ function initGeometry(){
   cube = new Cube();
   cube.color = [200/255,100/255,100/255,1];
   cube.matrix.translate(0,1,0);
+  cube.matrix.scale(1.5,1.5,1.5);
   cube.textureNum = -2;
   objs[1] = cube;
 
@@ -270,12 +293,45 @@ function initGeometry(){
   sky.textureNum = -2;
   sky.matrix.scale(-20,-20,-20);
   sky.matrix.translate(-.5,-.99,.5);
+  sky.materialSmoothness = .01;
 
   floor = new Cube();
   floor.color = [80/255,100/255,80/255,1];
   floor.textureNum = 0; 
   floor.matrix.translate(-10,-1,10);
   floor.matrix.scale(20,1,20);
+  
+  floor.materialSmoothness = .01;
+
+  // LIGHTS
+
+  let ambientLight = new Light(0);
+  ambientLight.position = [0,50,0];
+  ambientLight.diffuse_intensity = 0;
+  ambientLight.ambient_intensity = .15;
+  lights.push(ambientLight);
+
+  let defaultLight = new Light(1);
+  defaultLight.ambient_intensity = 0;
+  defaultLight.position = [-9, 10, -9];
+  defaultLight.color = hexToRgbArray("#ff0000");
+  lights.push(defaultLight);
+
+  let spotLight = new Light(2);
+  spotLight.color = hexToRgbArray("#0011ff");
+  spotLight.position = [0, 10, 0];
+  spotLight.ambient_intensity = .0;
+  spotLight.diffuse_intensity = 5;
+  spotLight.direction = [0,-1,0];
+  spotLight.cutoff = Math.cos(25*Math.PI/180);
+  lights.push(spotLight);
+
+  let otherLight = new Light(3);
+  otherLight.color = hexToRgbArray("#3cff00");
+  otherLight.position = [9, 10, 9];
+  otherLight.ambient_intensity = 0;
+  lights.push(otherLight);
+
 }
 
 //#region    // CANVAS & DOCUMENT SHIZ //
@@ -292,14 +348,48 @@ function eventsAndHTMLUI(document, canvas){
   });
 
   document.getElementById('lightXSlider0').addEventListener('input', function() {
-    g_lightPos[0] = parseFloat(this.value);
+    lights[1].position[0] = parseFloat(this.value);
   });
   document.getElementById('lightYSlider0').addEventListener('input', function() {
-    g_lightPos[1] = parseFloat(this.value);
+    lights[1].position[1] = parseFloat(this.value);
   });
   document.getElementById('lightZSlider0').addEventListener('input', function() {
-    g_lightPos[2] = parseFloat(this.value);
+    lights[1].position[2] = parseFloat(this.value);
   });
+  document.getElementById('lightXSlider1').addEventListener('input', function() {
+    lights[2].position[0] = parseFloat(this.value);
+  });
+  document.getElementById('lightYSlider1').addEventListener('input', function() {
+    lights[2].position[1] = parseFloat(this.value);
+  });
+  document.getElementById('lightZSlider1').addEventListener('input', function() {
+    lights[2].position[2] = parseFloat(this.value);
+  });
+  document.getElementById('lightXSlider2').addEventListener('input', function() {
+    lights[3].position[0] = parseFloat(this.value);
+  });
+  document.getElementById('lightYSlider2').addEventListener('input', function() {
+    lights[3].position[1] = parseFloat(this.value);
+  });
+  document.getElementById('lightZSlider2').addEventListener('input', function() {
+    lights[3].position[2] = parseFloat(this.value);
+  });
+  document.getElementById('lightColor0').addEventListener('input', function() {
+    lights[1].color =hexToRgbArray(this.value);
+  });
+  document.getElementById('lightColor1').addEventListener('input', function() {
+    lights[2].color =hexToRgbArray(this.value);
+  });
+  document.getElementById('lightColor2').addEventListener('input', function() {
+    lights[3].color =hexToRgbArray(this.value);
+  });
+  document.getElementById('ambIntense').addEventListener('input', function() {
+    lights[0].ambient_intensity = this.value;
+  });
+  document.getElementById('ambColor').addEventListener('input', function() {
+    lights[0].color = hexToRgbArray(this.value);
+  });
+
   canvas.addEventListener("click", async (ev) => {
     if (!mouseymove){
       await canvas.requestPointerLock({
@@ -361,6 +451,18 @@ function eventsAndHTMLUI(document, canvas){
     }
   }
 }
+
+function hexToRgbArray(hex) {
+  hex = hex.replace(/^#/, '');
+  
+  let bigint = parseInt(hex, 16);
+  let r = (bigint >> 16) & 255;
+  let g = (bigint >> 8) & 255;
+  let b = bigint & 255;
+  
+  return [r / 255, g / 255, b / 255];
+}
+
 //#endregion    // CANVAS & DOCUMENT SHIZ //
 
 function clearCanvas() {
@@ -435,11 +537,12 @@ function connectVariablesToGLSL() {
     console.log('Failed to get the storage location of u_FragColor');
     return false;
   }
+  /*
   u_LightPos = gl.getUniformLocation(gl.program, 'u_LightPos');
   if (!u_LightPos) {
     console.log('Failed to get the storage location of u_LightPos');
     return false;
-  }
+  }*/
   u_CameraPosition = gl.getUniformLocation(gl.program, 'u_CameraPosition');
   if (!u_CameraPosition) {
     console.log('Failed to get the storage location of u_CameraPosition');

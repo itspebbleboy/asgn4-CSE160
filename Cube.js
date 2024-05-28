@@ -53,7 +53,7 @@ class Cube{
         this.color = [0,0,0,0];
         this.matrix = new Matrix4();
         this.textureNum = 0;
-        this.materialSmoothness = 10; //specular exponent
+        this.materialSmoothness = .75; //specular exponent
     }
 
     render(){

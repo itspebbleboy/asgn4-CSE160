@@ -17,29 +17,58 @@
     </label>
     <br>
     <label>
-        Light X: <input type="range" id="lightXSlider0" min="-10" max="10" step="0.1" value="0">
+        Light X: <input type="range" id="lightXSlider0" min="-9" max="9" step="0.1" value="-9">
+    </label>
+    <label>
+        Light X: <input type="range" id="lightXSlider1" min="-9" max="9" step="0.1" value="0">
+    </label>
+    <label>
+        Light X: <input type="range" id="lightXSlider2" min="-9" max="9" step="0.1" value="9">
     </label>
     <br>
     <label>
-        Light Y: <input type="range" id="lightYSlider0" min="0" max="19" step="0.1" value="19">
+        Light Y: <input type="range" id="lightYSlider0" min="0" max="19" step="0.1" value="9">
+    </label>
+    <label>
+        Light Y: <input type="range" id="lightYSlider1" min="0" max="19" step="0.1" value="9">
+    </label>
+    <label>
+        Light Y: <input type="range" id="lightYSlider2" min="0" max="19" step="0.1" value="9">
     </label>
     <br>
     <label>
-        Light Z: <input type="range" id="lightZSlider0" min="-10" max="10" step="0.1" value="0">
+        Light Z: <input type="range" id="lightZSlider0" min="-9" max="9" step="0.1" value="-9">
+    </label>
+    <label>
+        Light Z: <input type="range" id="lightZSlider1" min="-9" max="9" step="0.1" value="-9">
+    </label>
+    <label>
+        Light Z: <input type="range" id="lightZSlider2" min="-9" max="9" step="0.1" value="9">
+    </label>
+    <br>
+    <br>
+    <label for=""> light 1 ---------------- </label>
+    <label for="">light 2 ---------------- </label>
+    <label for="">light 3 </label>
+    <br>
+    <label>
+        <input type="color" id="lightColor0" name="lightColor0" value="#ff0000" />
+    </label>
+    <label for="">-------------- </label>
+    <label>
+        <input type="color" id="lightColor1" name="lightColor1" value="#0011ff" />
+    </label>
+    <label for="">-------------- </label>
+    <label>
+        <input type="color" id="lightColor2" name="lightColor2" value="#3cff00" />
     </label>
     <br>
     <label>
-        Light X: <input type="range" id="lightXSlider1" min="-10" max="10" step="0.1" value="0">
+        Ambient Light Intensity: <input type="range" id="ambIntense" min="0" max=".3" step="0.01" value=".15">
     </label>
-    <br>
     <label>
-        Light Y: <input type="range" id="lightYSlider1" min="0" max="19" step="0.1" value="19">
+        Ambient Light Color: <input type="color" id="ambColor" name="ambColor" value="#FFFFFF" />
     </label>
-    <br>
-    <label>
-        Light Z: <input type="range" id="lightZSlider1" min="-10" max="10" step="0.1" value="0">
-    </label>
-
     <script src="./lib/cuon-matrix.js"></script>
     <script src="./lib/webgl-utils.js"></script>
     <script src="./lib/cuon-utils.js"></script>

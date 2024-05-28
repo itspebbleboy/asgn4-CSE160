@@ -2,7 +2,7 @@ class Sphere{
     constructor(){
         this.type = 'sphere';
         this.color = [0,0,0,0];
-        this.materialSmoothness = 10; //specularExponent
+        this.materialSmoothness =  .75; //specularExponent
         this.matrix = new Matrix4();
         this.textureNum = 0;
         const pie = Math.PI;
