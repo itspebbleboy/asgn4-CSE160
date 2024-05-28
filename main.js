@@ -314,11 +314,22 @@ function initGeometry(){
 
   cube = new Cube();
   cube.color = [200/255,100/255,100/255,1];
-  cube.matrix.translate(0,1,0);
+  cube.matrix.translate(0,.5,0);
   cube.matrix.scale(1.5,1.5,1.5);
   cube.textureNum = -2;
   objs[1] = cube;
-
+  cube1 = new Cube();
+  cube1.color = [5/255,60/255,100/255,1];
+  cube1.matrix.translate(0,.5,1.5);
+  cube1.matrix.scale(1.5,1.5,1.5);
+  cube1.textureNum = -2;
+  objs.push(cube1);
+  cube2 = new Cube();
+  cube2.color = [99/255,200/255,99/255,1];
+  cube2.matrix.translate(3,.5,1);
+  cube2.matrix.scale(1.5,1.5,1.5);
+  cube2.textureNum = -2;
+  objs.push(cube2);
   sky = new Cube();
   sky.color = [180/255,220/255,230/255,1];
   sky.textureNum = -2;
